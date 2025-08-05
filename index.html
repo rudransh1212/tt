@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Timetable with Weather</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #F9FAFB;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+            background-color: #0d1a26; /* Default dark blue */
+            position: relative;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            transition: background-color 1s ease;
+        }
+
+        /* Weather Animations Container */
+        #weather-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Realistic Rain Animation */
+        .raindrop {
+            position: absolute;
+            bottom: 100%;
+            width: 2px;
+            height: 120px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.5));
+            animation: fall-rain 0.5s linear infinite;
+            filter: blur(1px);
+        }
+        @keyframes fall-rain {
+            to { 
+                transform: translateY(120vh);
+            }
+        }
+        
+        /* Realistic Clouds Animation */
+        .cloud-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            animation: move-clouds-bg 60s linear infinite;
+        }
+        .cloud {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            opacity: 0.25;
+        }
+        .cloud.c1 { top: 10%; left: 15%; width: 200px; height: 60px; animation: move-cloud 20s linear infinite alternate; }
+        .cloud.c2 { top: 25%; left: 40%; width: 300px; height: 90px; animation: move-cloud 30s linear infinite alternate; }
+        .cloud.c3 { top: 20%; left: 75%; width: 250px; height: 70px; animation: move-cloud 25s linear infinite alternate; }
+        .cloud:before, .cloud:after {
+            content: '';
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+        }
+        .cloud:before { width: 120px; height: 120px; top: -60px; left: 40px; }
+        .cloud:after { width: 150px; height: 150px; top: -75px; right: 30px; }
+        @keyframes move-cloud {
+            from { transform: translateX(-20px); }
+            to { transform: translateX(20px); }
+        }
+
+        /* Realistic Clear Sky (Sun) Animation */
+        .sun {
+            position: absolute;
+            top: -15vw;
+            right: -15vw;
+            width: 40vw;
+            height: 40vw;
+            min-width: 400px;
+            min-height: 400px;
+            background: radial-gradient(circle, rgba(255, 245, 200, 0.4) 0%, rgba(255, 245, 200, 0) 60%);
+            border-radius: 50%;
+            animation: pulse-sun 10s ease-in-out infinite;
+        }
+        .sun-ray {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            height: 200%;
+            width: 2px;
+            background: linear-gradient(to bottom, rgba(255,245,200,0.2), transparent);
+            transform-origin: top;
+            animation: rotate-rays 120s linear infinite;
+        }
+        @keyframes pulse-sun {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+        @keyframes rotate-rays {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Realistic Snow Animation */
+        .snowflake {
+            color: #fff;
+            font-size: 1.5em;
+            font-family: Arial, sans-serif;
+            text-shadow: 0 0 8px rgba(255,255,255,0.8);
+            position: absolute;
+            top: -10%;
+            user-select: none;
+            animation-name: fall-snow, side-ways;
+            animation-timing-function: linear, ease-in-out;
+            animation-iteration-count: infinite, infinite;
+        }
+        @keyframes fall-snow {
+            100% { top: 110%; }
+        }
+        @keyframes side-ways {
+            0% { transform: translateX(0px) rotate(0deg); }
+            50% { transform: translateX(100px) rotate(180deg); }
+            100% { transform: translateX(0px) rotate(360deg); }
+        }
+        
+        /* Realistic Haze/Fog Animation */
+        .fog-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-size: 200% 100%;
+            animation: move-fog 90s linear infinite alternate;
+        }
+        .fog-layer.f1 { background-image: radial-gradient(circle at 20% 30%, rgba(200,200,200,0.3), transparent 70%); }
+        .fog-layer.f2 { background-image: radial-gradient(circle at 80% 60%, rgba(200,200,200,0.25), transparent 60%); animation-direction: alternate-reverse; }
+        @keyframes move-fog {
+            from { transform: translate(-10%, -5%); }
+            to { transform: translate(10%, 5%); }
+        }
+
+
+        .timetable-container {
+            width: 100%;
+            max-width: 500px;
+            z-index: 1;
+        }
+        .user-greeting {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .user-greeting h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+        }
+        .user-greeting p {
+            font-size: 1rem;
+            color: #D1D5DB;
+        }
+        .status-header {
+            background-color: #1f293780;
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            border: 1px solid #374151;
+        }
+        #current-time-header {
+            font-size: 0.9rem;
+            color: #9CA3AF;
+            margin-bottom: 0.5rem;
+        }
+        #weather-info {
+            font-size: 1rem;
+            color: #d1d5db;
+            margin-bottom: 0.75rem;
+        }
+        #next-up-info {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #F9FAFB;
+        }
+        #next-up-info span {
+            color: #60A5FA;
+        }
+        .day-filters {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+        }
+        .day-filter-btn {
+            background-color: rgba(55, 65, 81, 0.5);
+            backdrop-filter: blur(5px);
+            border: 1px solid #374151;
+            color: #D1D5DB;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .day-filter-btn:hover {
+            background-color: rgba(75, 85, 99, 0.6);
+        }
+        .day-filter-btn.active {
+            background-color: #3B82F6;
+            color: #FFF;
+            font-weight: 600;
+            border-color: #3B82F6;
+        }
+        .actions-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .action-btn {
+            background-color: #3B82F6;
+            color: #FFF;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+        .action-btn:hover {
+            background-color: #2563EB;
+        }
+        .class-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .class-card {
+            background-color: #1F2937;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #374151;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .class-card:hover {
+            border-color: #60A5FA;
+        }
+        .class-card.current {
+             border-color: #60A5FA;
+             box-shadow: 0 0 15px -3px #60A5FA;
+        }
+        .class-card.upcoming {
+             border-color: #FBBF24;
+             box-shadow: 0 0 15px -3px #FBBF24;
+        }
+        .class-info h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+        .class-info p {
+            color: #9CA3AF;
+            font-size: 0.875rem;
+        }
+        .class-time {
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-align: right;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+        }
+        .modal {
+            background-color: #1F2937;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid #374151;
+        }
+        .modal h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+        .modal-field {
+            margin-bottom: 1rem;
+        }
+        .modal-field label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #9CA3AF;
+        }
+        .modal-field input, .modal-field select {
+            width: 100%;
+            background-color: #374151;
+            border: 1px solid #4B5563;
+            color: #F9FAFB;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .modal-btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+            border: none;
+        }
+        .modal-btn.save { background-color: #3B82F6; color: #FFF; }
+        .modal-btn.save:hover { background-color: #2563EB; }
+        .modal-btn.cancel { background-color: #4B5563; color: #F9FAFB; }
+        .modal-btn.cancel:hover { background-color: #6B7280; }
+        .modal-btn.delete { background-color: #EF4444; color: #FFF; }
+        .modal-btn.delete:hover { background-color: #DC2626; }
+
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+            .user-greeting h1 {
+                font-size: 1.75rem;
+            }
+            .user-greeting p {
+                font-size: 0.875rem;
+            }
+            .status-header {
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            #next-up-info {
+                font-size: 1.25rem;
+            }
+            .day-filters {
+                gap: 0.25rem;
+            }
+            .day-filter-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.875rem;
+            }
+            .class-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            .class-time {
+                align-self: flex-end;
+                background-color: #374151;
+                padding: 0.25rem 0.5rem;
+                border-radius: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="weather-animation"></div>
+    <div id="app-container" class="timetable-container" style="display: none;">
+        <!-- User Greeting -->
+        <div class="user-greeting">
+            <h1 id="greeting-text"></h1>
+            <p>Your personal class schedule, live.</p>
+        </div>
+
+        <!-- Status Header -->
+        <div class="status-header">
+            <p id="current-time-header">Loading...</p>
+            <p id="weather-info">Fetching weather...</p>
+            <h2 id="next-up-info">Initializing...</h2>
+        </div>
+
+        <!-- Day Filter Buttons -->
+        <div class="day-filters" id="day-filters"></div>
+
+        <!-- Action Buttons -->
+        <div class="actions-container">
+            <button id="add-class-btn" class="action-btn">Add Class</button>
+            <button id="settings-btn" class="action-btn">Settings</button>
+        </div>
+
+        <!-- Class List -->
+        <div class="class-list" id="class-list"></div>
+    </div>
+
+    <!-- Setup Modal -->
+    <div id="setup-modal-overlay" class="modal-overlay">
+        <div id="setup-modal" class="modal">
+            <h2 id="setup-modal-title">Welcome!</h2>
+            <div class="modal-field">
+                <label for="user-name">Your Name</label>
+                <input type="text" id="user-name" placeholder="Enter your name">
+            </div>
+            <div class="modal-field">
+                <label for="hss-elective">HSS Elective</label>
+                <select id="hss-elective"></select>
+            </div>
+            <div class="modal-field">
+                <label for="comp-elective">Computer Elective</label>
+                <select id="comp-elective"></select>
+            </div>
+            <div class="modal-field">
+                <label for="phy-elective">Physics & Maths Elective</label>
+                <select id="phy-elective"></select>
+            </div>
+            <div class="modal-buttons">
+                <button id="setup-save-btn" class="modal-btn save">Save and Continue</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Edit Class Modal -->
+    <div id="edit-modal-overlay" class="modal-overlay">
+        <div id="edit-modal" class="modal">
+            <h2 id="modal-title">Edit Class</h2>
+            <div class="modal-field">
+                <label for="subject-name">Subject Name</label>
+                <input type="text" id="subject-name">
+            </div>
+            <div class="modal-field">
+                <label for="room-number">Room Number</label>
+                <input type="text" id="room-number">
+            </div>
+            <div class="modal-field">
+                <label for="start-time">Start Time</label>
+                <input type="time" id="start-time">
+            </div>
+            <div class="modal-field">
+                <label for="end-time">End Time</label>
+                <input type="time" id="end-time">
+            </div>
+            <div class="modal-buttons">
+                <button id="delete-btn" class="modal-btn delete">Delete</button>
+                <button id="cancel-btn" class="modal-btn cancel">Cancel</button>
+                <button id="save-btn" class="modal-btn save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let schedule = [];
+            const baseSchedule = [
+                // Non-elective classes
+                { id: 2, day: 1, start: '10:00', end: '11:50', name: 'OSSP Lab', room: 'CL3', type: 'lab' },
+                { id: 3, day: 1, start: '14:00', end: '15:50', name: 'IS Lab', room: 'CL4', type: 'lab' },
+                { id: 6, day: 2, start: '10:00', end: '10:50', name: 'Audit', room: '254', type: 'audit' },
+                { id: 7, day: 2, start: '11:00', end: '11:50', name: 'OS Lecture', room: '254', type: 'os' },
+                { id: 10, day: 3, start: '10:00', end: '11:50', name: 'Open Source Lab', room: 'CL3', type: 'lab' },
+                { id: 11, day: 3, start: '14:00', end: '14:50', name: 'OS Lecture', room: '254', type: 'os' },
+                { id: 12, day: 3, start: '15:00', end: '15:50', name: 'COA Lecture', room: '254', type: 'coa' },
+                { id: 15, day: 4, start: '10:00', end: '10:50', name: 'Audit', room: '254', type: 'audit' },
+                { id: 16, day: 4, start: '11:00', end: '11:50', name: 'COA Lecture', room: '254', type: 'coa' },
+                { id: 17, day: 4, start: '13:00', end: '13:50', name: 'OS Tut', room: 'CR54', type: 'tut' },
+                { id: 18, day: 4, start: '15:00', end: '15:50', name: 'COA Tut', room: '229', type: 'tut' },
+                { id: 20, day: 5, start: '10:00', end: '10:50', name: 'COA Lecture', room: '254', type: 'coa' },
+                { id: 21, day: 5, start: '11:00', end: '11:50', name: 'OS Lecture', room: '254', type: 'os' },
+                { id: 22, day: 5, start: '13:00', end: '14:50', name: 'COA Lab', room: 'CL3', type: 'lab' },
+                { id: 24, day: 6, start: '10:00', end: '10:50', name: 'Audit', room: 'CR54', type: 'audit' },
+                // Elective placeholders
+                { id: 101, day: 1, start: '09:00', end: '09:50', name: 'HSS Elective', room: '', type: 'hss' },
+                { id: 102, day: 3, start: '08:00', end: '08:50', name: 'HSS Elective', room: '', type: 'hss' },
+                { id: 103, day: 5, start: '09:00', end: '09:50', name: 'HSS Elective', room: '', type: 'hss' },
+                { id: 104, day: 2, start: '09:00', end: '09:50', name: 'COMP Elective', room: '', type: 'comp' },
+                { id: 105, day: 4, start: '08:00', end: '08:50', name: 'COMP Elective', room: '', type: 'comp' },
+                { id: 106, day: 6, start: '09:00', end: '09:50', name: 'COMP Elective', room: '', type: 'comp' },
+                { id: 107, day: 2, start: '08:00', end: '08:50', name: 'PHY Elective', room: '', type: 'phy' },
+                { id: 108, day: 3, start: '09:00', end: '09:50', name: 'PHY Elective', room: '', type: 'phy' },
+                { id: 109, day: 4, start: '09:00', end: '09:50', name: 'PHY Elective', room: '', type: 'phy' },
+            ];
+
+            const electiveData = {
+                hss: [
+                    { name: 'Planning', room: 'CR53' }, { name: 'Finance', room: '229' },
+                    { name: 'Entrepreneurship', room: '259' }, { name: 'Psychology', room: '254' },
+                    { name: 'Sociology', room: 'CR54' }
+                ],
+                comp: [
+                    { name: 'ML', room: 'CR54' }, { name: 'OOPJ', room: 'CR53' },
+                    { name: 'BigData', room: '259' }, { name: 'Security', room: '254' },
+                    { name: 'Vision', room: '229' }, { name: 'Automata', room: '3045 / 153' }
+                ],
+                phy: [
+                    { name: 'Matrix', room: '254' }, { name: 'Logic', room: 'CR54' },
+                    { name: 'Quantum', room: '229' }, { name: 'Nuclear', room: '229' },
+                    { name: 'Numerical', room: 'CR53' }, { name: 'Statistics', room: '217' },
+                    { name: 'Materials', room: '225' }, { name: 'Laser', room: '259' }
+                ]
+            };
+            
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayFiltersContainer = document.getElementById('day-filters');
+            const classListContainer = document.getElementById('class-list');
+            const currentTimeHeader = document.getElementById('current-time-header');
+            const nextUpInfo = document.getElementById('next-up-info');
+            const weatherInfoDiv = document.getElementById('weather-info');
+            const weatherAnimationContainer = document.getElementById('weather-animation');
+            const greetingText = document.getElementById('greeting-text');
+            
+            // App container
+            const appContainer = document.getElementById('app-container');
+
+            // Setup Modal elements
+            const setupModalOverlay = document.getElementById('setup-modal-overlay');
+            const setupModalTitle = document.getElementById('setup-modal-title');
+            const userNameInput = document.getElementById('user-name');
+            const hssSelect = document.getElementById('hss-elective');
+            const compSelect = document.getElementById('comp-elective');
+            const phySelect = document.getElementById('phy-elective');
+            const setupSaveBtn = document.getElementById('setup-save-btn');
+            const settingsBtn = document.getElementById('settings-btn');
+            
+            // Edit Class Modal elements
+            const editModalOverlay = document.getElementById('edit-modal-overlay');
+            const modalTitle = document.getElementById('modal-title');
+            const subjectInput = document.getElementById('subject-name');
+            const roomInput = document.getElementById('room-number');
+            const startInput = document.getElementById('start-time');
+            const endInput = document.getElementById('end-time');
+            const saveBtn = document.getElementById('save-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const deleteBtn = document.getElementById('delete-btn');
+            const addClassBtn = document.getElementById('add-class-btn');
+
+            let activeDayIndex = new Date().getDay();
+            if (activeDayIndex === 0) activeDayIndex = 1;
+            let currentEditingClassId = null;
+
+            function saveUserData(name, electives) {
+                localStorage.setItem('timetableUser', JSON.stringify({ name, electives }));
+            }
+
+            function loadUserData() {
+                const savedUser = localStorage.getItem('timetableUser');
+                return savedUser ? JSON.parse(savedUser) : null;
+            }
+
+            function saveSchedule() {
+                localStorage.setItem('timetableSchedule', JSON.stringify(schedule));
+            }
+
+            function loadSchedule() {
+                const savedSchedule = localStorage.getItem('timetableSchedule');
+                if (savedSchedule) {
+                    schedule = JSON.parse(savedSchedule);
+                } else {
+                    // This will be generated after setup
+                    schedule = [];
+                }
+            }
+
+            function formatTime(timeStr) {
+                if (!timeStr) return '';
+                const [hour, minute] = timeStr.split(':');
+                const h = parseInt(hour);
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const formattedHour = h % 12 === 0 ? 12 : h % 12;
+                return `${formattedHour}:${minute}${ampm}`;
+            }
+
+            function openEditModal(classData) {
+                if (classData) {
+                    currentEditingClassId = classData.id;
+                    modalTitle.textContent = 'Edit Class';
+                    subjectInput.value = classData.name;
+                    roomInput.value = classData.room;
+                    startInput.value = classData.start;
+                    endInput.value = classData.end;
+                    deleteBtn.style.display = 'block';
+                } else {
+                    currentEditingClassId = null;
+                    modalTitle.textContent = 'Add Class';
+                    subjectInput.value = '';
+                    roomInput.value = '';
+                    startInput.value = '';
+                    endInput.value = '';
+                    deleteBtn.style.display = 'none';
+                }
+                editModalOverlay.style.display = 'flex';
+            }
+
+            function closeEditModal() {
+                editModalOverlay.style.display = 'none';
+            }
+
+            function populateElectiveDropdowns(electives) {
+                Object.keys(electives).forEach(key => {
+                    const selectEl = document.getElementById(`${key}-elective`);
+                    selectEl.innerHTML = '';
+                    electives[key].forEach(option => {
+                        const optionEl = document.createElement('option');
+                        optionEl.value = JSON.stringify(option);
+                        optionEl.textContent = `${option.name} (Room: ${option.room})`;
+                        selectEl.appendChild(optionEl);
+                    });
+                });
+            }
+
+            function openSetupModal(userData) {
+                populateElectiveDropdowns(electiveData);
+                if (userData) {
+                    // Pre-fill for editing
+                    setupModalTitle.textContent = 'Settings';
+                    userNameInput.value = userData.name;
+                    // Pre-select electives
+                    if (userData.electives) {
+                        hssSelect.value = JSON.stringify(userData.electives.hss);
+                        compSelect.value = JSON.stringify(userData.electives.comp);
+                        phySelect.value = JSON.stringify(userData.electives.phy);
+                    }
+                } else {
+                    setupModalTitle.textContent = 'Welcome!';
+                }
+                setupModalOverlay.style.display = 'flex';
+            }
+
+            function generatePersonalizedSchedule(electives) {
+                let personalizedSchedule = JSON.parse(JSON.stringify(baseSchedule)); // Deep copy
+                personalizedSchedule.forEach(cls => {
+                    if (cls.type === 'hss') {
+                        cls.name = electives.hss.name;
+                        cls.room = electives.hss.room;
+                    } else if (cls.type === 'comp') {
+                        cls.name = electives.comp.name;
+                        cls.room = electives.comp.room;
+                    } else if (cls.type === 'phy') {
+                        cls.name = electives.phy.name;
+                        cls.room = electives.phy.room;
+                    }
+                });
+                return personalizedSchedule;
+            }
+
+            setupSaveBtn.addEventListener('click', () => {
+                const userName = userNameInput.value;
+                const selectedElectives = {
+                    hss: JSON.parse(hssSelect.value),
+                    comp: JSON.parse(compSelect.value),
+                    phy: JSON.parse(phySelect.value)
+                };
+
+                if (!userName) {
+                    alert('Please enter your name.');
+                    return;
+                }
+
+                saveUserData(userName, selectedElectives);
+                schedule = generatePersonalizedSchedule(selectedElectives);
+                saveSchedule();
+                
+                greetingText.textContent = `Hello, ${userName}!`;
+                setupModalOverlay.style.display = 'none';
+                appContainer.style.display = 'block';
+                renderDay(activeDayIndex);
+            });
+
+            settingsBtn.addEventListener('click', () => {
+                const userData = loadUserData();
+                openSetupModal(userData);
+            });
+
+            saveBtn.addEventListener('click', () => {
+                const newClassData = {
+                    name: subjectInput.value,
+                    room: roomInput.value,
+                    start: startInput.value,
+                    end: endInput.value,
+                    day: activeDayIndex,
+                    type: 'custom'
+                };
+
+                if (currentEditingClassId) {
+                    const classIndex = schedule.findIndex(c => c.id === currentEditingClassId);
+                    if (classIndex > -1) {
+                        schedule[classIndex] = { ...schedule[classIndex], ...newClassData };
+                    }
+                } else {
+                    newClassData.id = Date.now();
+                    schedule.push(newClassData);
+                }
+                
+                saveSchedule();
+                renderDay(activeDayIndex);
+                closeEditModal();
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                if (currentEditingClassId) {
+                    schedule = schedule.filter(c => c.id !== currentEditingClassId);
+                    saveSchedule();
+                    renderDay(activeDayIndex);
+                    closeEditModal();
+                }
+            });
+
+            cancelBtn.addEventListener('click', closeEditModal);
+            addClassBtn.addEventListener('click', () => openEditModal(null));
+
+            function renderDay(dayIndex) {
+                activeDayIndex = dayIndex;
+                classListContainer.innerHTML = '';
+                document.querySelectorAll('.day-filter-btn').forEach(btn => {
+                    btn.classList.toggle('active', parseInt(btn.dataset.day) === dayIndex);
+                });
+                const classesForDay = schedule.filter(c => c.day === dayIndex).sort((a,b) => a.start.localeCompare(b.start));
+                if (classesForDay.length === 0) {
+                    classListContainer.innerHTML = `<p class="text-center text-gray-400">No classes for ${daysOfWeek[dayIndex]}.</p>`;
+                    return;
+                }
+                classesForDay.forEach(c => {
+                    const card = document.createElement('div');
+                    card.className = 'class-card';
+                    card.dataset.id = c.id;
+                    card.innerHTML = `
+                        <div class="class-info">
+                            <h3>${c.name}</h3>
+                            <p>${c.room ? `Room: ${c.room}` : 'No room specified'}</p>
+                        </div>
+                        <div class="class-time">
+                            ${formatTime(c.start)} - ${formatTime(c.end)}
+                        </div>
+                    `;
+                    card.addEventListener('click', () => {
+                        const classToEdit = schedule.find(item => item.id === c.id);
+                        openEditModal(classToEdit);
+                    });
+                    classListContainer.appendChild(card);
+                });
+            }
+
+            function createDayFilters() {
+                for (let i = 1; i <= 6; i++) {
+                    const button = document.createElement('button');
+                    button.className = 'day-filter-btn';
+                    button.textContent = daysOfWeek[i];
+                    button.dataset.day = i;
+                    button.addEventListener('click', () => renderDay(i));
+                    dayFiltersContainer.appendChild(button);
+                }
+            }
+
+            function setWeatherAnimation(weatherMain) {
+                weatherAnimationContainer.innerHTML = '';
+                switch (weatherMain) {
+                    case 'Clear':
+                        document.body.style.backgroundColor = '#4a90e2';
+                        const sunContainer = document.createElement('div');
+                        sunContainer.className = 'sun';
+                        for(let i=0; i < 12; i++) {
+                            const ray = document.createElement('div');
+                            ray.className = 'sun-ray';
+                            ray.style.transform = `rotate(${i * 30}deg)`;
+                            sunContainer.appendChild(ray);
+                        }
+                        weatherAnimationContainer.appendChild(sunContainer);
+                        break;
+                    case 'Clouds':
+                        document.body.style.backgroundColor = '#7D8A98';
+                        weatherAnimationContainer.innerHTML = `<div class="cloud-layer"><div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div></div>`;
+                        break;
+                    case 'Rain':
+                    case 'Drizzle':
+                        document.body.style.backgroundColor = '#414B57';
+                        for (let i = 0; i < 100; i++) {
+                            const drop = document.createElement('div');
+                            drop.className = 'raindrop';
+                            drop.style.left = `${Math.random() * 100}vw`;
+                            drop.style.animationDelay = `${Math.random() * 2}s`;
+                            drop.style.animationDuration = `${0.5 + Math.random() * 0.3}s`;
+                            weatherAnimationContainer.appendChild(drop);
+                        }
+                        break;
+                    case 'Snow':
+                         document.body.style.backgroundColor = '#6c7a89';
+                         for (let i = 0; i < 150; i++) {
+                            const flake = document.createElement('div');
+                            flake.className = 'snowflake';
+                            flake.innerHTML = '&#10052;';
+                            flake.style.left = `${Math.random() * 100}vw`;
+                            flake.style.opacity = `${0.4 + Math.random() * 0.6}`;
+                            flake.style.fontSize = `${0.6 + Math.random() * 1.2}em`;
+                            flake.style.animationDuration = `${7 + Math.random() * 10}s, ${4 + Math.random() * 5}s`;
+                            flake.style.animationDelay = `${Math.random() * 15}s`;
+                            weatherAnimationContainer.appendChild(flake);
+                         }
+                        break;
+                    case 'Haze':
+                    case 'Mist':
+                    case 'Fog':
+                         document.body.style.backgroundColor = '#B0B8C1';
+                         weatherAnimationContainer.innerHTML = '<div class="fog-layer f1"></div><div class="fog-layer f2"></div>';
+                        break;
+                    default:
+                        document.body.style.backgroundColor = '#0d1a26';
+                }
+            }
+
+            async function fetchWeather() {
+                const lat = 28.51;
+                const lon = 77.37;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`;
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    const temp = data.current.temperature_2m;
+                    const weatherCode = data.current.weather_code;
+                    let weatherCondition = 'Clear';
+                    if ([1, 2, 3].includes(weatherCode)) weatherCondition = 'Clouds';
+                    if (weatherCode >= 51 && weatherCode <= 67) weatherCondition = 'Rain';
+                    if (weatherCode >= 71 && weatherCode <= 77) weatherCondition = 'Snow';
+                    if (weatherCode >= 45 && weatherCode <= 48) weatherCondition = 'Haze';
+                    weatherInfoDiv.textContent = `Noida: ${temp}°C, ${weatherCondition}`;
+                    setWeatherAnimation(weatherCondition);
+                } catch (error) {
+                    console.error("Failed to fetch weather:", error);
+                    weatherInfoDiv.textContent = "Could not fetch weather data.";
+                }
+            }
+
+            function updateStatus() {
+                const now = new Date();
+                const currentDay = now.getDay();
+                const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const timeOptions = { weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                currentTimeHeader.textContent = `Current Time: ${now.toLocaleTimeString('en-US', timeOptions)}`;
+
+                const currentClass = schedule.find(c => c.day === currentDay && currentTime >= c.start && currentTime < c.end);
+                let nextClass = null;
+                const upcomingToday = schedule.filter(c => c.day === currentDay && c.start > currentTime).sort((a, b) => a.start.localeCompare(b.start));
+                if (upcomingToday.length > 0) {
+                    nextClass = upcomingToday[0];
+                } else {
+                    for (let i = 1; i <= 7; i++) {
+                        const nextDayIndex = (currentDay + i) % 7;
+                        if (nextDayIndex === 0) continue;
+                        const upcomingNextDay = schedule.filter(c => c.day === nextDayIndex).sort((a, b) => a.start.localeCompare(b.start));
+                        if (upcomingNextDay.length > 0) {
+                            nextClass = upcomingNextDay[0];
+                            break;
+                        }
+                    }
+                }
+
+                if (currentClass) {
+                    nextUpInfo.innerHTML = `In Progress: <span>${currentClass.name}</span>`;
+                } else if (nextClass) {
+                    nextUpInfo.innerHTML = `Next up: <span>${nextClass.name}</span> at ${formatTime(nextClass.start)}`;
+                } else {
+                    nextUpInfo.textContent = 'No more classes for the week!';
+                }
+
+                document.querySelectorAll('.class-card').forEach(card => {
+                    card.classList.remove('current', 'upcoming');
+                    const cardId = parseInt(card.dataset.id);
+                    if (currentClass && cardId === currentClass.id && activeDayIndex === currentDay) {
+                        card.classList.add('current');
+                    } else if (!currentClass && nextClass && cardId === nextClass.id && activeDayIndex === nextClass.day) {
+                        card.classList.add('upcoming');
+                    }
+                });
+            }
+
+            // Initial Load
+            function init() {
+                const userData = loadUserData();
+                if (userData) {
+                    greetingText.textContent = `Hello, ${userData.name}!`;
+                    appContainer.style.display = 'block';
+                    loadSchedule();
+                    createDayFilters();
+                    renderDay(activeDayIndex);
+                    updateStatus();
+                    fetchWeather();
+                    setInterval(updateStatus, 1000);
+                    setInterval(fetchWeather, 600000);
+                } else {
+                    openSetupModal();
+                }
+            }
+
+            init();
+        });
+    </script>
+</body>
+</ht
