@@ -874,9 +874,11 @@
                 }
 
                 if (currentClass) {
-                    nextUpInfo.innerHTML = `In Progress: <span>${currentClass.name}</span>`;
+                    const roomInfo = currentClass.room ? ` in Room ${currentClass.room}` : '';
+                    nextUpInfo.innerHTML = `In Progress: <span>${currentClass.name}</span>${roomInfo}`;
                 } else if (nextClass) {
-                    nextUpInfo.innerHTML = `Next up: <span>${nextClass.name}</span> at ${formatTime(nextClass.start)}`;
+                    const roomInfo = nextClass.room ? ` in Room ${nextClass.room}` : '';
+                    nextUpInfo.innerHTML = `Next up: <span>${nextClass.name}</span> at ${formatTime(nextClass.start)}${roomInfo}`;
                 } else {
                     nextUpInfo.textContent = 'No more classes for the week!';
                 }
@@ -914,4 +916,4 @@
         });
     </script>
 </body>
-</ht
+</html>
